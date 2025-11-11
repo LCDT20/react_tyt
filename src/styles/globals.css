@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  body {
+    @apply antialiased bg-gray-50 text-gray-900;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
+
+@layer components {
+  /* Button Styles - Apple-inspired */
+  .btn-primary {
+    @apply bg-orange-500 text-white px-6 py-3 rounded-xl font-semibold 
+           hover:bg-orange-600 transition-all duration-200 
+           focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2
+           shadow-apple hover:shadow-apple-md;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold 
+           hover:bg-gray-200 transition-all duration-200 
+           focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2;
+  }
+
+  .btn-outline {
+    @apply border-2 border-orange-500 text-orange-500 px-6 py-3 rounded-xl 
+           font-semibold hover:bg-orange-50 transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2;
+  }
+  
+  /* Card Styles */
+  .card {
+    @apply bg-white rounded-2xl shadow-apple border border-gray-100
+           hover:shadow-apple-md transition-all duration-300;
+  }
+
+  .card-hover-lift {
+    @apply hover:-translate-y-1 hover:shadow-apple-lg;
+  }
+  
+  /* Input Styles */
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl 
+           focus:ring-2 focus:ring-orange-500 focus:border-transparent 
+           transition-all duration-200 placeholder-gray-400;
+  }
+
+  .input-field:focus {
+    @apply shadow-glow-orange;
+  }
+
+  /* Link Styles */
+  .link-orange {
+    @apply text-orange-500 hover:text-orange-600 transition-colors duration-200;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .backdrop-blur-apple {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
+/* Custom scrollbar - Apple-style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f8f9fb;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Smooth page transitions */
+.page-transition {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Loading spinner */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Focus visible for accessibility */
+*:focus-visible {
+  outline: 2px solid #FFA500;
+  outline-offset: 2px;
+}
+
+/* Prevent text selection on buttons */
+button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Smooth transitions for all interactive elements */
+a, button, input, textarea, select {
+  transition-property: color, background-color, border-color, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Background Video Styles */
+.background-video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: -1;
+  transform: scale(0.97);
+  filter: brightness(0.95);
+}
+
+@media (max-width: 1024px) {
+  .background-video {
+    transform: scale(1.02);
+  }
+}
+
+@media (max-width: 768px) {
+  .background-video {
+    transform: scale(1.05);
+  }
+}
+
+/* Video fallback per browser non supportati */
+.video-fallback {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: -1;
+  transform: scale(0.97);
+  filter: brightness(0.95);
+}
+
+@media (max-width: 1024px) {
+  .video-fallback {
+    transform: scale(1.02);
+  }
+}
+
+@media (max-width: 768px) {
+  .video-fallback {
+    transform: scale(1.05);
+  }
+}
+

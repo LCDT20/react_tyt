@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Collection Backend</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #111827;
+            margin-bottom: 8px;
+        }
+        h2 {
+            color: #374151;
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        .warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fbbf24;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #60a5fa;
+        }
+        button {
+            background: #f97316;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 5px;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #ea580c;
+        }
+        button:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+        }
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        .label {
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 8px;
+        }
+        .token-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Collection Backend</h1>
+    <p style="color: #6b7280; margin-bottom: 30px;">Diagnostica completa del backend Collection Service</p>
+
+    <div class="container">
+        <h2>📋 Configurazione</h2>
+        
+        <div class="label">JWT Token (opzionale, da localStorage):</div>
+        <input type="text" id="tokenInput" class="token-input" placeholder="Incolla il token o lascia vuoto per usare quello salvato">
+        <button onclick="loadTokenFromStorage()">Carica Token da LocalStorage</button>
+        <button onclick="clearToken()">Cancella Token</button>
+        
+        <div id="tokenStatus" class="status info" style="display: none;"></div>
+    </div>
+
+    <div class="container">
+        <h2>🔧 Test Base</h2>
+        
+        <div class="test-section">
+            <div class="label">1. Test Connessione Base</div>
+            <button onclick="test1_BasicConnection()">Test GET /collections/items/</button>
+            <div id="result1"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="label">2. Test Health Endpoint</div>
+            <button onclick="test2_Health()">Test GET /health</button>
+            <div id="result2"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="label">3. Test CORS (Preflight)</div>
+            <button onclick="test3_CORS()">Test OPTIONS Request</button>
+            <div id="result3"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="label">4. Test con Token JWT</div>
+            <button onclick="test4_WithAuth()">Test GET /collections/items/ con Bearer Token</button>
+            <div id="result4"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="label">5. Test Crea Item</div>
+            <button onclick="test5_CreateItem()">Test POST /collections/items/</button>
+            <div id="result5"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="label">6. Test con Filtri</div>
+            <button onclick="test6_WithFilters()">Test GET con Query Parameters</button>
+            <div id="result6"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="label">7. Test Timeout</div>
+            <button onclick="test7_Timeout()">Test Timeout (30s)</button>
+            <div id="result7"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📊 Riepilogo</h2>
+        <button onclick="runAllTests()" style="background: #10b981;">▶️ Esegui Tutti i Test</button>
+        <button onclick="clearAll()" style="background: #6b7280;">🗑️ Pulisci Risultati</button>
+        <div id="summary"></div>
+    </div>
+
+    <script>
+        const BASE_URL = 'https://collection.takeyourtrade.com/api/v1';
+        let token = '';
+
+        function getToken() {
+            const input = document.getElementById('tokenInput').value.trim();
+            if (input) return input;
+            
+            // Try to get from localStorage
+            const storedToken = localStorage.getItem('tyt_token');
+            return storedToken || '';
+        }
+
+        function loadTokenFromStorage() {
+            const storedToken = localStorage.getItem('tyt_token');
+            if (storedToken) {
+                document.getElementById('tokenInput').value = storedToken;
+                showStatus('tokenStatus', 'success', `✓ Token caricato da localStorage (lunghezza: ${storedToken.length})`);
+            } else {
+                showStatus('tokenStatus', 'error', '✗ Nessun token trovato in localStorage');
+            }
+        }
+
+        function clearToken() {
+            document.getElementById('tokenInput').value = '';
+            showStatus('tokenStatus', 'info', 'Token cancellato');
+        }
+
+        function showResult(id, status, message, details = null) {
+            const div = document.getElementById(id);
+            div.innerHTML = '';
+            
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${status}`;
+            statusDiv.textContent = message;
+            div.appendChild(statusDiv);
+            
+            if (details) {
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(details, null, 2);
+                div.appendChild(pre);
+            }
+        }
+
+        function showStatus(id, status, message) {
+            const div = document.getElementById(id);
+            div.className = `status ${status}`;
+            div.textContent = message;
+            div.style.display = 'block';
+        }
+
+        async function test1_BasicConnection() {
+            showResult('result1', 'info', '⏳ Testando connessione base...');
+            
+            try {
+                const start = Date.now();
+                const response = await fetch(`${BASE_URL}/collections/items/`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                });
+                const duration = Date.now() - start;
+                
+                const data = await response.text();
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(data);
+                } catch {
+                    parsedData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('result1', 'success', `✓ Connessione OK (${response.status}) - ${duration}ms`, parsedData);
+                } else {
+                    showResult('result1', 'error', `✗ Errore ${response.status}: ${response.statusText}`, parsedData);
+                }
+            } catch (error) {
+                showResult('result1', 'error', `✗ Errore di rete: ${error.message}`, error);
+            }
+        }
+
+        async function test2_Health() {
+            showResult('result2', 'info', '⏳ Testando health endpoint...');
+            
+            try {
+                // Prova sia /health che /api/v1/health
+                let response = await fetch(`${BASE_URL}/health`, {
+                    method: 'GET',
+                });
+                
+                if (!response.ok) {
+                    // Fallback a /health alla root
+                    response = await fetch('https://collection.takeyourtrade.com/health', {
+                        method: 'GET',
+                    });
+                }
+                
+                const data = await response.text();
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(data);
+                } catch {
+                    parsedData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('result2', 'success', `✓ Health OK (${response.status})`, parsedData);
+                } else {
+                    showResult('result2', 'error', `✗ Health FAIL (${response.status})`, parsedData);
+                }
+            } catch (error) {
+                showResult('result2', 'error', `✗ Errore: ${error.message}`, error);
+            }
+        }
+
+        async function test3_CORS() {
+            showResult('result3', 'info', '⏳ Testando CORS preflight...');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/collections/items/`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Authorization, Content-Type',
+                    },
+                });
+                
+                const headers = {};
+                response.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+                
+                if (response.ok) {
+                    showResult('result3', 'success', `✓ CORS OK (${response.status})`, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: headers
+                    });
+                } else {
+                    showResult('result3', 'warning', `⚠ CORS risposta ${response.status}`, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: headers
+                    });
+                }
+            } catch (error) {
+                showResult('result3', 'error', `✗ Errore CORS: ${error.message}`, error);
+            }
+        }
+
+        async function test4_WithAuth() {
+            showResult('result4', 'info', '⏳ Testando con autenticazione...');
+            
+            token = getToken();
+            if (!token) {
+                showResult('result4', 'warning', '⚠ Nessun token fornito. Test senza autenticazione.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${BASE_URL}/collections/items/`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                    },
+                });
+                
+                const data = await response.text();
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(data);
+                } catch {
+                    parsedData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('result4', 'success', `✓ Autenticazione OK (${response.status})`, parsedData);
+                } else if (response.status === 401) {
+                    showResult('result4', 'error', `✗ Token non valido (401 Unauthorized)`, parsedData);
+                } else {
+                    showResult('result4', 'error', `✗ Errore ${response.status}`, parsedData);
+                }
+            } catch (error) {
+                showResult('result4', 'error', `✗ Errore: ${error.message}`, error);
+            }
+        }
+
+        async function test5_CreateItem() {
+            showResult('result5', 'info', '⏳ Testando creazione item...');
+            
+            token = getToken();
+            if (!token) {
+                showResult('result5', 'warning', '⚠ Token richiesto per questo test');
+                return;
+            }
+            
+            try {
+                const testData = {
+                    card_id: '00000000-0000-0000-0000-000000000001',
+                    quantity: 1,
+                    condition: 'NM',
+                    language: 'EN',
+                    is_foil: false,
+                    is_signed: false,
+                    is_altered: false,
+                    source: 'manual',
+                    notes: 'Test item'
+                };
+                
+                const response = await fetch(`${BASE_URL}/collections/items/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(testData),
+                });
+                
+                const data = await response.text();
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(data);
+                } catch {
+                    parsedData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('result5', 'success', `✓ Creazione OK (${response.status})`, parsedData);
+                } else if (response.status === 400) {
+                    showResult('result5', 'error', `✗ Bad Request (${response.status}) - Controlla i dati`, parsedData);
+                } else {
+                    showResult('result5', 'error', `✗ Errore ${response.status}`, parsedData);
+                }
+            } catch (error) {
+                showResult('result5', 'error', `✗ Errore: ${error.message}`, error);
+            }
+        }
+
+        async function test6_WithFilters() {
+            showResult('result6', 'info', '⏳ Testando con filtri...');
+            
+            token = getToken();
+            
+            try {
+                const params = new URLSearchParams({
+                    page: '1',
+                    per_page: '10',
+                    condition: 'NM',
+                    language: 'EN',
+                    is_foil: 'false'
+                });
+                
+                const headers = {
+                    'Accept': 'application/json',
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch(`${BASE_URL}/collections/items/?${params}`, {
+                    method: 'GET',
+                    headers: headers,
+                });
+                
+                const data = await response.text();
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(data);
+                } catch {
+                    parsedData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('result6', 'success', `✓ Filtri OK (${response.status})`, parsedData);
+                } else {
+                    showResult('result6', 'error', `✗ Errore ${response.status}`, parsedData);
+                }
+            } catch (error) {
+                showResult('result6', 'error', `✗ Errore: ${error.message}`, error);
+            }
+        }
+
+        async function test7_Timeout() {
+            showResult('result7', 'info', '⏳ Testando timeout (30s)...');
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                
+                const start = Date.now();
+                const response = await fetch(`${BASE_URL}/collections/items/`, {
+                    method: 'GET',
+                    signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                
+                const duration = Date.now() - start;
+                
+                const data = await response.text();
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(data);
+                } catch {
+                    parsedData = data;
+                }
+                
+                showResult('result7', 'success', `✓ Risposta ricevuta in ${duration}ms`, {
+                    status: response.status,
+                    duration: `${duration}ms`
+                });
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    showResult('result7', 'error', `✗ Timeout dopo 30 secondi`);
+                } else {
+                    showResult('result7', 'error', `✗ Errore: ${error.message}`, error);
+                }
+            }
+        }
+
+        async function runAllTests() {
+            const summary = document.getElementById('summary');
+            summary.innerHTML = '<div class="status info">⏳ Esecuzione di tutti i test...</div>';
+            
+            const tests = [
+                { name: 'Connessione Base', fn: test1_BasicConnection, delay: 1000 },
+                { name: 'Health', fn: test2_Health, delay: 1000 },
+                { name: 'CORS', fn: test3_CORS, delay: 1000 },
+                { name: 'Autenticazione', fn: test4_WithAuth, delay: 1000 },
+                { name: 'Crea Item', fn: test5_CreateItem, delay: 1000 },
+                { name: 'Filtri', fn: test6_WithFilters, delay: 1000 },
+            ];
+            
+            for (const test of tests) {
+                test.fn();
+                await new Promise(resolve => setTimeout(resolve, test.delay));
+            }
+            
+            setTimeout(() => {
+                summary.innerHTML = '<div class="status success">✓ Tutti i test completati. Controlla i risultati sopra.</div>';
+            }, tests.length * test.delay);
+        }
+
+        function clearAll() {
+            for (let i = 1; i <= 7; i++) {
+                document.getElementById(`result${i}`).innerHTML = '';
+            }
+            document.getElementById('summary').innerHTML = '';
+        }
+
+        // Auto-load token on page load
+        window.addEventListener('load', () => {
+            const storedToken = localStorage.getItem('tyt_token');
+            if (storedToken) {
+                document.getElementById('tokenInput').value = storedToken;
+                showStatus('tokenStatus', 'success', `✓ Token caricato automaticamente (lunghezza: ${storedToken.length})`);
+            }
+        });
+    </script>
+</body>
+</html>
+

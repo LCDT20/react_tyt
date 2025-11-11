@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Local - Take Your Trade</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-item {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #FFA500;
+            background: #fff7ed;
+        }
+        .success { border-left-color: #10b981; background: #ecfdf5; }
+        .error { border-left-color: #ef4444; background: #fef2f2; }
+        .warning { border-left-color: #f59e0b; background: #fffbeb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Deploy Take Your Trade</h1>
+        
+        <div class="test-item success">
+            <h3>✅ Build Completato</h3>
+            <p>Il build di produzione è stato creato con successo nella cartella <code>dist/</code></p>
+        </div>
+        
+        <div class="test-item success">
+            <h3>✅ Percorsi Relativi</h3>
+            <p>I percorsi degli asset sono ora relativi (<code>./assets/</code>) per compatibilità con Hostinger</p>
+        </div>
+        
+        <div class="test-item success">
+            <h3>✅ File .htaccess</h3>
+            <p>Configurazione Apache aggiornata per supportare React Router SPA</p>
+        </div>
+        
+        <div class="test-item warning">
+            <h3>⚠️ Prossimi Passi</h3>
+            <p>1. Carica TUTTI i file dalla cartella <code>dist/</code> su Hostinger<br>
+               2. Assicurati che la struttura delle cartelle sia mantenuta<br>
+               3. Testa il sito su <code>https://takeyourtrade.com</code></p>
+        </div>
+        
+        <div class="test-item">
+            <h3>📁 File da Caricare</h3>
+            <ul>
+                <li><code>index.html</code> (file principale)</li>
+                <li><code>.htaccess</code> (configurazione Apache)</li>
+                <li><code>assets/</code> (tutti i file CSS e JS)</li>
+                <li><code>videos/</code> (video di sfondo)</li>
+            </ul>
+        </div>
+        
+        <div class="test-item">
+            <h3>🔍 Debug Pagina Bianca</h3>
+            <p>Se vedi ancora una pagina bianca:</p>
+            <ul>
+                <li>Apri la Console del browser (F12)</li>
+                <li>Controlla errori JavaScript</li>
+                <li>Verifica che i file CSS/JS si carichino</li>
+                <li>Controlla la Network tab per errori 404</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
+
