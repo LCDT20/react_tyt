@@ -1,366 +1,239 @@
-# Take Your Trade - Frontend
+# Take Your Trade – Frontend
 
-## 📋 Panoramica
+An end‑to‑end React application for managing the Take Your Trade marketplace: search Magic: The Gathering cards, maintain personal collections, connect external marketplaces, and run the full user dashboard. This README documents the architecture, authentication model (RS256 JWT), API contracts, deployment workflow, and how to get a clean production build from scratch.
 
-**Take Your Trade** è una piattaforma web per il trading di carte Magic: The Gathering, sviluppata con React 18, TypeScript e Vite. Il frontend si integra con un backend microservizi per fornire un'esperienza completa di gestione collezioni, ricerca carte e trading.
+---
 
-## 🏗️ Architettura
+## 1. System Overview
 
-### Stack Tecnologico
+| Topic                | Details                                                                 |
+|----------------------|-------------------------------------------------------------------------|
+| Frontend Stack       | React 18, TypeScript, Vite 5                                            |
+| Styling              | Tailwind CSS + custom Apple‑style components                           |
+| Animations & Icons   | Framer Motion, Lucide                                                   |
+| State Management     | Zustand with persistence (localStorage)                                 |
+| HTTP Clients         | Axios instances (`authApi`, `api`) with interceptors                    |
+| Routing              | React Router DOM 6                                                      |
+| Node compatibility   | Node.js 18+                                                             |
 
-- **Frontend Framework**: React 18.2.0 con TypeScript
-- **Build Tool**: Vite 5.0.11
-- **Routing**: React Router DOM 6.21.1
-- **State Management**: Zustand 4.4.7
-- **HTTP Client**: Axios 1.6.5
-- **UI/UX**: Tailwind CSS 3.4.1 + Framer Motion 10.18.0
-- **Icons**: Lucide React 0.303.0
-
-### Struttura del Progetto
+Project layout (non exhaustive):
 
 ```
 src/
-├── app/                    # Configurazione routing e layout
-│   ├── MainLayout.tsx     # Layout principale dell'app
-│   └── Router.tsx         # Configurazione delle route
-├── components/            # Componenti riutilizzabili
-│   ├── header/           # Componenti header e navigazione
-│   ├── ui/               # Componenti UI base
-│   ├── register/         # Componenti per registrazione
-│   └── debug/            # Componenti per debug
-├── pages/                # Pagine dell'applicazione
-│   ├── Auth/             # Pagine di autenticazione
-│   ├── Cards/            # Pagine per gestione carte
-│   ├── Dashboard/        # Dashboard utente
-│   └── Admin/            # Area amministrativa
-├── store/                # Store Zustand
-│   ├── authStore.ts      # Store per autenticazione
-│   └── registerStore.ts  # Store per registrazione
-├── lib/                  # Librerie e configurazioni
-│   ├── api.ts           # Client API principale
-│   ├── authApi.ts       # Client API autenticazione
-│   └── config.ts        # Configurazioni globali
-├── hooks/                # Custom React hooks
-├── types/                # Definizioni TypeScript
-└── utils/                # Utility functions
+├── app/                    MainLayout, Router configuration
+├── components/             Reusable UI (header, collection modals, etc.)
+├── hooks/                  Custom hooks (card detail, search, language, …)
+├── lib/                    Axios clients, config, helpers
+├── pages/                  Route-level components (Auth, Account, Cards…)
+├── services/               Business wrappers around API clients
+├── store/                  Zustand stores (auth, collection, activity)
+└── styles/                 Tailwind global stylesheet
 ```
 
-## 🔐 Sistema di Autenticazione
+Removed assets: all legacy test HTML files and debug scripts were deleted from the repository to keep production builds clean.
 
-### Architettura JWT
+---
 
-Il frontend implementa un sistema di autenticazione basato su **JWT (JSON Web Tokens)** con le seguenti caratteristiche:
+## 2. Installation & Local Development
 
-#### 1. **Dual API Architecture**
-- **`authApi`**: Client dedicato per operazioni di autenticazione
-- **`api`**: Client generale per tutte le altre operazioni API
+```bash
+# install dependencies
+npm install
 
-#### 2. **Gestione Token**
-```typescript
-// Configurazione token
-const config = {
-  auth: {
-    baseURL: 'https://enter.takeyourtrade.com/api',
-    tokenKey: 'tyt_token',      // Chiave localStorage per token
-    userKey: 'tyt_user',        // Chiave localStorage per dati utente
+# run the Vite dev server (http://localhost:5173 by default)
+npm run dev
+
+# lint sources (optional – configure .eslintrc as needed)
+npm run lint
+```
+
+Environment variables:
+
+| File               | Purpose                                             |
+|--------------------|-----------------------------------------------------|
+| `.env.production`  | Production API URLs and credentials (committed)     |
+| `env.production`   | Hostinger deploy helper (if required by infra team) |
+
+The Vite dev server proxies `/api` to the remote backend (`vite.config.ts`), so the frontend works with live APIs without CORS issues.
+
+---
+
+## 3. Building for Production
+
+```bash
+npm run build          # runs `tsc` then `vite build`
+npm run preview        # locally serve the generated dist/ (optional)
+```
+
+The command produces a minified bundle in `dist/`:
+
+- `dist/index.html`
+- `dist/assets/*.js` + `*.css`
+- hashed chunks split into `vendor`, `router`, `ui`, `store`, etc., via Rollup manual chunks (see `vite.config.ts`).
+
+Upload the entire `dist/` directory to Hostinger (or your CDN). No debug/test files are shipped.
+
+---
+
+## 4. Authentication in Depth (RS256 JWT)
+
+The backend issues RS256-signed JWTs. The frontend never signs tokens; it stores and forwards the signed payloads, allowing the backend to validate with its public key.
+
+### 4.1 Token Storage Keys
+
+| Key                         | Description                           |
+|-----------------------------|---------------------------------------|
+| `tyt_access_token`          | Short-lived access token              |
+| `tyt_refresh_token`         | Long-lived refresh token              |
+| `tyt_user`                  | Serialized user object                |
+
+All are persisted in `localStorage`.
+
+### 4.2 Axios Clients
+
+- `src/lib/authApi.ts`: dedicated to `/auth/*` routes (login, register, refresh, logout).
+- `src/lib/api.ts`: generic client for all other endpoints.
+
+Both share base URL and timeouts defined in `src/lib/config.ts`.
+
+### 4.3 Request Interceptor (authApi)
+
+```ts
+this.instance.interceptors.request.use((cfg) => {
+  if (!this.token) this.token = localStorage.getItem(config.auth.tokenKey)
+  if (this.token && cfg.headers) {
+    cfg.headers.Authorization = `Bearer ${this.token}`
   }
-}
+  cfg.headers.Accept = 'application/json'
+  cfg.headers['Content-Type'] = 'application/json'
+  return cfg
+})
 ```
 
-#### 3. **Flusso di Autenticazione**
+This ensures every outgoing request carries `Authorization: Bearer <access_token>` and consistent headers.
 
-**Login:**
-1. L'utente inserisce credenziali
-2. `authApi.post('/auth/login', credentials)` invia richiesta
-3. Il backend restituisce `{ access_token, user }`
-4. Il token viene salvato in localStorage
-5. Lo stato globale viene aggiornato con `useAuthStore`
+### 4.4 Response Interceptor (Refresh Handling)
 
-**Logout:**
-1. Token e dati utente vengono rimossi da localStorage
-2. Stato globale viene resettato
-3. Redirect automatico alla pagina di login
+Simplified flow when a 401 response occurs:
 
-#### 4. **Protezione Route**
-```typescript
-// Componente ProtectedRoute
+1. Skip refresh for login/register/refresh endpoints and if `_retry` flag is set.
+2. Fetch `tyt_refresh_token` from localStorage.
+3. If missing, call `forceLogout()` (clears storage and redirects to `/login`).
+4. If another refresh is already in progress → queue the original request and run it after success.
+5. POST `/auth/refresh` with `refresh_token`.
+6. On success, store new tokens, replay queued requests with updated headers.
+7. On error, clear session and redirect to `/login`.
+
+All tokens are signed RS256 by the backend. The frontend trusts the backend for signature verification; it never decodes or verifies the signature locally beyond storing payloads.
+
+### 4.5 Zustand Auth Store (`src/store/authStore.ts`)
+
+- `initializeAuth()` runs at app startup (`src/main.tsx`) to hydrate tokens, call `/auth/me`, and refresh if needed.
+- `login(credentials)` calls `authApi.post('/auth/login')`, stores access/refresh tokens and user.
+- `logout()` hits `/auth/logout` (if logged in), then clears local storage, Zustand state, and tokens in `authApi`.
+- `setToken()` allows manual override (used after refresh).
+
+### 4.6 Protected Routes
+
+```tsx
 export default function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore()
-  
+  const location = useLocation()
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />
   }
-  
   return <>{children}</>
 }
 ```
 
-### Interceptors Axios
-
-#### Request Interceptor
-```typescript
-// Aggiunge automaticamente il token JWT a tutte le richieste
-this.instance.interceptors.request.use((config) => {
-  if (this.token && config.headers) {
-    config.headers.Authorization = `Bearer ${this.token}`
-  }
-  return config
-})
-```
-
-#### Response Interceptor
-```typescript
-// Gestisce errori di autenticazione globalmente
-this.instance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token scaduto o non valido
-      this.clearToken()
-      window.location.href = '/login'
-    }
-    return Promise.reject(error)
-  }
-)
-```
-
-## 🗄️ State Management
-
-### Zustand Store
-
-Il frontend utilizza **Zustand** per la gestione dello stato globale con persistenza:
-
-```typescript
-// authStore.ts
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      // Stato
-      user: null,
-      accessToken: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
-      
-      // Azioni
-      login: async (credentials) => { /* ... */ },
-      register: async (data) => { /* ... */ },
-      logout: () => { /* ... */ },
-      // ...
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
-        accessToken: state.accessToken,
-        isAuthenticated: state.isAuthenticated,
-      }),
-    }
-  )
-)
-```
-
-### Persistenza Dati
-
-- **localStorage**: Token JWT e dati utente
-- **Zustand persist**: Sincronizzazione automatica stato/localStorage
-- **Inizializzazione**: Caricamento automatico stato all'avvio app
-
-## 🌐 Integrazione Backend
-
-### Configurazione API
-
-```typescript
-// config.ts
-const isDevelopment = import.meta.env.DEV
-const apiBaseURL = isDevelopment 
-  ? '/api'  // Proxy locale in sviluppo
-  : 'https://enter.takeyourtrade.com/api'  // URL diretto in produzione
-```
-
-### Proxy di Sviluppo
-
-```typescript
-// vite.config.ts
-server: {
-  proxy: {
-    '/api': {
-      target: 'https://enter.takeyourtrade.com',
-      changeOrigin: true,
-      secure: true,
-      rewrite: (path) => path.replace(/^\/api/, '/api'),
-    },
-  },
-}
-```
-
-### Endpoints Principali
-
-#### Autenticazione
-- `POST /auth/login` - Login utente
-- `POST /auth/register` - Registrazione utente
-- `POST /auth/verify-email` - Verifica email
-- `POST /auth/password/email` - Richiesta reset password
-- `POST /auth/password/reset` - Reset password
-
-#### Carte e Collezioni
-- `GET /cards/search` - Ricerca carte
-- `GET /cards/:id` - Dettaglio carta
-- `GET /collection` - Collezione utente
-- `POST /collection` - Aggiungi carta alla collezione
-
-## 🎨 Design System
-
-### Stile Apple-like
-Il frontend implementa un design minimalista ispirato ad Apple con:
-- **Colori**: Palette limitata e coerente
-- **Tipografia**: Inter font family
-- **Spacing**: Sistema di spacing consistente
-- **Componenti**: Design pulito e funzionale
-
-### Tailwind CSS
-- Configurazione personalizzata
-- Utility classes per styling rapido
-- Responsive design mobile-first
-- Dark mode support (futuro)
-
-## 🚀 Build e Deploy
-
-### Scripts Disponibili
-
-```json
-{
-  "dev": "vite",                    // Sviluppo locale
-  "build": "tsc && vite build",     // Build produzione
-  "build:prod": "tsc && vite build --mode production",
-  "preview": "vite preview",        // Anteprima build
-  "lint": "eslint . --ext ts,tsx",  // Linting
-  "clean": "rimraf dist"            // Pulizia build
-}
-```
-
-### Configurazione Build
-
-```typescript
-// vite.config.ts
-build: {
-  outDir: 'dist',
-  assetsDir: 'assets',
-  sourcemap: false,
-  minify: 'terser',
-  rollupOptions: {
-    output: {
-      manualChunks: {
-        vendor: ['react', 'react-dom'],
-        router: ['react-router-dom'],
-        ui: ['lucide-react', 'framer-motion'],
-        store: ['zustand'],
-      },
-    },
-  },
-}
-```
-
-## 🔧 Sviluppo
-
-### Prerequisiti
-- Node.js 18+
-- npm o yarn
-
-### Installazione
-```bash
-npm install
-```
-
-### Sviluppo Locale
-```bash
-npm run dev
-```
-
-### Build Produzione
-```bash
-npm run build:prod
-```
-
-## 📱 Funzionalità Principali
-
-### Pubbliche
-- **Homepage**: Landing page con presentazione
-- **Login/Register**: Autenticazione utenti
-- **Verifica Email**: Sistema di verifica
-- **Reset Password**: Recupero password
-- **Health Check**: Monitoraggio stato API
-
-### Protette (Richiedono Login)
-- **Dashboard**: Pannello utente principale
-- **Collezione**: Gestione carte personali
-- **Ricerca Carte**: Sistema di ricerca avanzata
-- **Social Feed**: Feed social per trading
-- **Chat**: Sistema di messaggistica
-- **Admin**: Area amministrativa
-
-## 🔒 Sicurezza
-
-### Misure Implementate
-- **JWT Token**: Autenticazione stateless sicura
-- **HTTPS Only**: Comunicazione criptata
-- **CORS**: Configurazione corretta per cross-origin
-- **Token Expiry**: Gestione automatica scadenza token
-- **Input Validation**: Validazione lato client e server
-- **XSS Protection**: Sanitizzazione input utente
-
-### Best Practices
-- Token non esposti in console
-- Logout automatico su errori 401
-- Validazione form real-time
-- Gestione errori centralizzata
-
-## 🐛 Debug e Monitoring
-
-### Strumenti Debug
-- **SearchDebug**: Componente per debug ricerca
-- **Console Logs**: Logging dettagliato errori
-- **Network Monitoring**: Interceptor Axios per monitoraggio
-- **Health Check**: Endpoint per verifica stato
-
-### File di Test
-- `test-*.html`: File di test per varie funzionalità
-- `debug-search.js`: Script debug per ricerca
-- `verify-fix.html`: Verifica correzioni
-
-## 📈 Performance
-
-### Ottimizzazioni
-- **Code Splitting**: Chunk separati per vendor libraries
-- **Lazy Loading**: Caricamento lazy delle route
-- **Tree Shaking**: Eliminazione codice non utilizzato
-- **Minification**: Compressione codice produzione
-- **Caching**: Gestione cache browser
-
-### Bundle Analysis
-- Vendor chunks separati
-- CSS purging automatico
-- Asset optimization
-- Source maps disabilitati in produzione
-
-## 🔄 Integrazione Continua
-
-### Workflow
-1. **Sviluppo**: `npm run dev`
-2. **Testing**: `npm run lint`
-3. **Build**: `npm run build:prod`
-4. **Deploy**: Upload su Hostinger
-
-### Configurazione Produzione
-- Variabili ambiente in `env.production`
-- URL API configurati per produzione
-- Build ottimizzato per performance
+All account/dashboard/etc. routes are wrapped in `ProtectedRoute` via `src/app/Router.tsx`.
 
 ---
 
-## 📞 Supporto
+## 5. API Usage and Networking
 
-Per domande o supporto tecnico, contattare il team di sviluppo.
+### 5.1 Base URLs (`src/lib/config.ts`)
 
-**Versione**: 1.0.0  
-**Ultimo aggiornamento**: Dicembre 2024
+```ts
+const apiBaseURL = import.meta.env.DEV
+  ? '/api'   // proxied to https://enter.takeyourtrade.com/api in dev
+  : 'https://enter.takeyourtrade.com/api'
+```
+
+So production and development share the same code path, with Vite rewriting requests as necessary.
+
+### 5.2 Common Endpoints
+
+| Area             | Methods (examples)                                                   |
+|------------------|----------------------------------------------------------------------|
+| Auth             | `POST /auth/login`, `POST /auth/register`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me` |
+| Profile          | `GET /api/profile/settings`, `PUT /api/profile/settings/language`    |
+| Cards & Search   | `GET /api/cards/search`, `GET /api/cards/:oracle_id`, `GET /api/cards/:oracle_id/printings` |
+| Collection       | `GET /api/collection`, `POST /api/collection` (future wiring)        |
+
+Hooks like `useCardDetail`, `useCardPrintings`, and services like `collectionService.ts` wrap these endpoints and unify error handling.
+
+---
+
+## 6. Feature Highlights
+
+### 6.1 Search Experience (`src/pages/SearchPage.tsx`)
+- Toggle between **table** and **card** view; default is table.
+- Filters by set (with keyboard navigation), language, and pagination UI (logic ready for real backend).
+- Each card row includes quick actions (view details).
+- Always shows English fallback name beneath localized name.
+
+### 6.2 Card Detail (`src/pages/Cards/CardDetailPage.tsx`)
+- Card image with hover zoom preview.
+- Language selector limited to languages available in the selected set.
+- Central column lists rarity, set, number, total listings, etc.
+- Buttons to “View printings” or “View complete set.”
+- Collection modal:
+  - Fields: condition (NM/SP/MP/PL/PO), language, quantity, price, foil yes/no, optional notes, photo placeholder.
+  - Italian copy (requested by stakeholders).
+
+### 6.3 Account Synchronization (`src/pages/Account/Synchronization`)
+- UI for CardTrader integration: configure JWT token, copy webhook, view active sync status.
+- Terms page (`SynchronizationTermsPage.tsx`) explains data flow, security guidelines, and user responsibilities.
+
+### 6.4 Language Preference
+- `LanguageContext` stores UI language, defaulting to user preference from `/api/profile/settings`. Changing language triggers both context update and REST call to persist selection.
+
+---
+
+## 7. State & Persistence
+
+| Store                    | Purpose                                        |
+|--------------------------|------------------------------------------------|
+| `authStore.ts`           | Tokens, user, login/logout/refresh             |
+| `activityStatusStore.ts` | Tracks overall account activity status         |
+| `collectionStore.ts`     | Planned collection management                  |
+| `registerStore.ts`       | Multi-step registration wizard state           |
+
+All stores use Zustand’s `persist` middleware for safe rehydration across reloads.
+
+---
+
+## 8. Deployment Checklist
+
+1. Clean workspace (optional): `git clean -fdx` or manual removal of `dist/`.
+2. Install dependencies: `npm install`.
+3. Build production bundle: `npm run build`.
+4. Inspect `dist/` for expected assets.
+5. Upload `dist/` to hosting environment (Hostinger) or serve statically via CDN.
+6. Ensure backend endpoint `https://enter.takeyourtrade.com/api` is reachable over HTTPS.
+7. Invalidate CDN cache if necessary so clients receive the latest bundle.
+
+---
+
+## 9. Contributing & Support
+
+- Repository: <https://github.com/LCDT20/react_tyt>
+- Create feature branches and open PRs targeting `main`.
+- Report bugs through GitHub issues.
+- For operational questions or API access, contact `support@takeyourtrade.com`.
+- Related docs in root: `API_LANGUAGE_PREFERENCE.md`, `DEPLOY_INSTRUCTIONS.md`, `FORCE_REFRESH_GUIDE.md`, etc.
+
+---
+
+© 2025 TakeYourTrade. All rights reserved.
